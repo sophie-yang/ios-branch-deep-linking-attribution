@@ -1,3 +1,4 @@
+[![Version](https://img.shields.io/cocoapods/v/Branch.svg?style=flat)](https://cocoapods.org/pods/Branch)
 [![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage)
 [![MIT licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/hyperium/hyper/master/LICENSE)
 
@@ -69,13 +70,10 @@ pod 'Branch'
 Then, from the command line, `cd` to your project directory, and do:
 
 ```
-pod install
-pod update
+pod install --repo-update
 ```
 
-to install the Branch pod and update it to the latest version of the SDK.
-
-Make sure to do the `pod update`.  CocoaPods may not use the latest version of the SDK otherwise!
+to install the latest version of the Branch pod.
 
 ### Carthage
 
@@ -151,6 +149,10 @@ Note: If you used Fabric to install Branch as a kit, your Branch keys will be in
 
 Register your app to respond to direct deep links (yourapp:// in a mobile browser) by adding a URI scheme in the YourProject-Info.plist file. Make sure to change **yourapp** to a unique string that represents your app name.
 
+#### URI Scheme Considerations
+
+The Branch SDK will pull the first URI Scheme from your list that is not one of `fb`, `db`, or `pin`. This value will be used one time to set the iOS URI Scheme under your Link Settings in the Branch Dashboard.
+
 1. In Xcode, click on YourProject-Info.plist on the left.
 1. Find URL Types and click the right arrow. (If it doesn't exist, right click anywhere and choose Add Row. Scroll down and choose URL Types).
 1. Add "yourapp," where yourapp is a unique string for your app, as an item in URL Schemes as below.
@@ -199,11 +201,28 @@ Add the `branch_universal_link_domains` key with your custom domain as a string 
 
 ![Custom Domain Info.plist](docs/images/custom-domain.png)
 
-#### URI Scheme Considerations
-
-The Branch SDK will pull the first URI Scheme from your list that is not one of `fb`, `db`, or `pin`. This value will be used one time to set the iOS URI Scheme under your Link Settings in the Branch Dashboard.
-
 For additional help configuring the SDK, including step-by-step instructions, please see the [iOS Quickstart Guide](https://docs.branch.io/pages/apps/ios/).
+
+### Initialize and Call Branch In Your Code
+
+TODO: Finish this
+
+### Test Your Branch Integration
+
+Test your Branch Integration by calling `validateSDKIntegration` in your AppDelegate. Check your Xcode logs to make sure all the SDK Integration tests pass. Make sure to comment out or remove `validateSDKIntegration` in your production build.
+
+```swift
+Branch.getInstance().validateSDKIntegration()
+```
+
+```objc
+[[Branch getInstance] validateSDKIntegration];
+```
+
+##### Test Deeplink routing for your Branch links
+
+Append `?bnc_validate=true` to any of your app's Branch links and click it on your mobile device (not the Simulator!) to start the test. For instance, to validate a link like: `"https://<yourapp>.app.link/NdJ6nFzRbK"` click on: `"https://<yourapp>.app.link/NdJ6nFzRbK?bnc_validate=true"`
+
 
 ### Get a Singleton Branch Instance
 
@@ -223,44 +242,6 @@ Branch *branch = [Branch getInstance];
 let branch: Branch = Branch.getInstance()
 ```
 
-### Testing
-
-#### Test your Branch Integration
-
-Test your Branch Integration by calling `validateSDKIntegration` in your AppDelegate. Check your Xcode logs to make sure all the SDK Integration tests pass. Make sure to comment out or remove `validateSDKIntegration` in your production build.
-
-```swift
-Branch.getInstance().validateSDKIntegration()
-```
-
-```objc
-[[Branch getInstance] validateSDKIntegration];
-```
-
-##### Test Deeplink routing for your Branch links
-
-Append `?bnc_validate=true` to any of your app's Branch links and click it on your mobile device (not the Simulator!) to start the test. For instance, to validate a link like: `"https://<yourapp\>.app.link/NdJ6nFzRbK"` click on: `"https://<yourapp\>.app.link/NdJ6nFzRbK?bnc_validate=true"`
-
-###### Objective-C
-
-```objc
-#warning Remove for launch
-[Branch setUseTestBranchKey:YES];
-```
-
-###### Swift
-
-```swift
-//TODO: Remove for launch
-Branch.useTestBranchKey = true
-```
-
-#### Parameters
-
-**Branch key** (NSString *) _optional_
-: If you don't store the Branch key in the plist file, you have the option of passing this key as an argument.
-
-
 ### Init Branch Session and Deep Link Routing Function
 
 To deep link, Branch must initialize a session to check if the user originated from a link. This call will initialize a new session _every time the app opens_. 100% of the time the app opens, it will call the deep link handling block to inform you whether the user came from a link. If your app opens with keys in the params, you'll want to route the user depending on the data you passed in. Otherwise, send them to a generic screen.
@@ -274,11 +255,14 @@ To deep link, Branch must initialize a session to check if the user originated f
     [branch initSessionWithLaunchOptions:launchOptions andRegisterDeepLinkHandler:^(NSDictionary *params, NSError *error) {
     	// route the user based on what's in params
     }];
-    return YES;
+    return YES; // Important! Return 'YES' from this method.
 }
 
-- (BOOL)application:(UIApplication *)application openURL:(NSURL *)url sourceApplication:(NSString *)sourceApplication annotation:(id)annotation {
-
+- (BOOL)application:(UIApplication *)application 
+            openURL:(NSURL *)url 
+  sourceApplication:(NSString *)sourceApplication 
+         annotation:(id)annotation {
+         
     BOOL branchHandled =
         [[Branch getInstance]
             application:application
@@ -292,7 +276,9 @@ To deep link, Branch must initialize a session to check if the user originated f
     return YES;
 }
 
-- (BOOL)application:(UIApplication *)application continueUserActivity:(NSUserActivity *)userActivity restorationHandler:(void (^)(NSArray *restorableObjects))restorationHandler {
+- (BOOL)application:(UIApplication *)application 
+continueUserActivity:(NSUserActivity *)userActivity 
+  restorationHandler:(void (^)(NSArray *restorableObjects))restorationHandler {
     BOOL handledByBranch = [[Branch getInstance] continueUserActivity:userActivity];
 
     return handledByBranch;
