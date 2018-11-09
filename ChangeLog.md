@@ -1,5 +1,69 @@
 Branch iOS SDK Change Log
 
+- v0.25.8
+  * _*Master Release*_ - October 25, 2018
+  * GH-873-Make-BranchCSSearchableItemAttributeSet-Public (#888)
+    - Made the BranchCSSearchableItemAttributeSet header public.
+  * DEVEX-808 Change the api.branch.io endpoint to api2.branch.io (#884)
+
+- v0.25.7
+  * _*Master Release*_ - October 22, 2018
+  * DEVEX-861 Fix inconsistent unit tests. (#882)
+    - Fixed tests that were intermittently failing due to presumed app state.
+  * DEVEX-850 iOS 12 Background Networking Change (#881)
+    - Handle new iOS network error that can happen when the app is activated but not fully in foreground yet.
+  * DEVEX-837 Updated the SDK to use secure coding.
+    - The SDK now conforms to NSSecureCoding everywhere.
+  * Add include BranchCSSearchableItemAttributeSet to Branch.h closing GitHub issue #873 (#877).
+  * INTENG-4289 Fixed crash on validateSDKIntegration() (#874).
+    - This crash could occur only when using the `validateSDKIntegration` method.
+    - A null server response could cause a crash.
+
+- v0.25.6
+  * _*Master Release*_ - October 1, 2018
+  * Fixed a case when a session call back could happen with empty data.
+  * DEVEX-816: Fixed JSON encoding of special characters. This could prevent sessions that were
+    associated with a Facebook login from working correctly.
+  * Fixed some unit test failures largely due to iOS 12 threading.
+
+- v0.25.5
+  * _*Master Release*_ - September 14, 2018
+  * Added Apple Reminders as a scraper to prevent deferred linking (DEVEX-775).
+  * Fixed some Infer code analyzer warnings (DEVEX-774).
+  * iOS 12 Preparation (DEVEX-739).
+    - Updated project for iOS 12 / Xcode 10.
+    - Updated the keychain test.
+    - Use pods for OCMock instead of frameworks for compatibility.
+  * Fix potential crash bug with activity string.
+  * Made the session callback block publicly settable for more flexible app integrations.
+  * Updated the documentation as needed.
+
+- v0.25.4
+  * Release preparation - September 11, 2018
+
+- v0.25.3
+  * _*Master Release*_ - August 13, 2018
+  * Fixed an occasional double app open from being sent to Branch.
+  * Warning: Fabric no longer distributes third party kits like Branch. If you used Fabric to
+    integrate and update the Branch SDK, use one of the other methods for integrating Branch
+    as described [here, in our online documentation.](https://docs.branch.io/pages/apps/ios/#install-branch)
+
+- v0.25.2
+  * _*Master Release*_ - August 3, 2018
+  * IDFA is no longer sent when in debug mode for v2/events. DEVEX-685
+  * Some tests were updated for spotlight and v2/events.
+
+- v0.25.1
+  * _*Master Release*_ - July 12, 2018
+  * Fixed some documentation inconsistencies, fixed some compile warnings, and updated the unit tests.
+  * Send instrumentation times for Apple Search Ads (DEVEX-594).
+  * Prevent strong match controller crash on iOS 10 (DEVEX-515).
+  * Added a Branch SDK integration validator.
+    - See usage instructions in the README file: [Integration Validator](https://github.com/BranchMetrics/ios-branch-deep-linking/blob/master/README.md#test-your-branch-integration).
+  * Clean up source for sharing between projects (DEVEX-332).
+  * Updated the podspec to add SafariServices for `without-IDFA` subspec.
+  * Updated unit and UITests to simplify testing.
+
 - v0.25.0
   * _*Master Release*_ - May 3, 2018
   * Reorganized project as minimally as possible to make using unit and functional test apps much easier.

@@ -17,6 +17,7 @@
 #import "BNCSystemObserver.h"
 #import "BNCApplication.h"
 #import "BNCKeyChain.h"
+#import "TBSettings.h"
 
 NSString *canonicalIdentifier = @"item/12345";
 NSString *canonicalUrl = @"https://dev.branch.io/getting-started/deep-link-routing/guide/ios/";
@@ -75,6 +76,10 @@ static NSString* TBStringFromObject(id<NSObject> object) {
         [self.tableData addRowWithTitle:title selector:@selector(selector_) style:rowStyle];
 
     section(@"Session");
+//    tableRow = row(@"Pretty Display", TBRowStyleSwitch, togglePrettyDisplay:);
+//    tableRow.integerValue = [TBSettings shared].usePrettyDisplay;
+//    tableRow.userInfo = 1; // green tint
+
     tableRow = row(@"Tracking Disabled", TBRowStyleSwitch, trackingDisabled:);
     tableRow.integerValue = Branch.trackingDisabled;
     self.trackingDisabledPath = [self.tableData indexPathForRow:tableRow];
@@ -102,23 +107,27 @@ static NSString* TBStringFromObject(id<NSObject> object) {
     row(@"ShareLink (No Anchor, One Day Link)", TBRowStylePlain, sharelinkTableRowNilAnchor:);
     row(@"BUO Share from Table Row",    TBRowStylePlain,        buoShareTableRow:);
 
+    section(@"Spotlight");
+    row(@"Register BUO on Spotlight",   TBRowStylePlain,        registerBUOOnSpotlight:);
+
     section(@"Rewards");
-    self.rewardsRow = row(@"Refresh Rewards", TBRowStylePlain, refreshRewards:);
+    self.rewardsRow = row(@"Refresh Rewards", TBRowStylePlain,  refreshRewards:);
     row(@"Redeem 5 Points",             TBRowStylePlain, redeemRewards:);
-    row(@"Show Rewards History",        TBRowStyleDisclosure, showRewardsHistory:);
+    row(@"Show Rewards History",        TBRowStyleDisclosure,   showRewardsHistory:);
 
     section(@"App Update State");
-    row(@"Erase All App Data",          TBRowStylePlain, clearAllAppDataAction:)
-    row(@"Show Dates & Update State",   TBRowStyleDisclosure, showDatesAction:)
+    row(@"Erase All App Data",          TBRowStylePlain,        clearAllAppDataAction:)
+    row(@"Show Dates & Update State",   TBRowStyleDisclosure,   showDatesAction:)
 
     section(@"Miscellaneous");
-    row(@"Show Local IP Addess",        TBRowStyleDisclosure, showLocalIPAddress:);
-    row(@"Show Current View Controller", TBRowStyleDisclosure, showCurrentViewController:)
-    row(@"Stress Test Open",            TBRowStylePlain, stressTestOpen:)
-
+    row(@"Show Local IP Addess",        TBRowStyleDisclosure,   showLocalIPAddress:);
+    row(@"Show Current View Controller", TBRowStyleDisclosure,  showCurrentViewController:)
+    row(@"Stress Test Open",            TBRowStylePlain,        stressTestOpen:)
+    row(@"Test fb auth. Open fb123://", TBRowStylePlain,        openFacebookAuth:)
     #undef section
     #undef row
 }
+
 
 - (void)viewDidLoad {
     [super viewDidLoad];
@@ -209,7 +218,10 @@ static NSString* TBStringFromObject(id<NSObject> object) {
     if (row.rowStyle == TBRowStyleSwitch) {
         UISwitch *sw = [[UISwitch alloc] init];
         sw.on = row.integerValue;
-        sw.onTintColor = [UIColor redColor];
+        if (row.userInfo & 1)
+            sw.onTintColor = [UIColor greenColor];
+        else
+            sw.onTintColor = [UIColor redColor];
         [sw addTarget:self action:row.selector forControlEvents:UIControlEventValueChanged];
         cell.accessoryView = sw;
         cell.selectionStyle = UITableViewCellSelectionStyleNone;
@@ -220,7 +232,7 @@ static NSString* TBStringFromObject(id<NSObject> object) {
 - (void) tableView:(UITableView *)tableView
 didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
     TBTableRow *row = [self.tableData rowForIndexPath:indexPath];
-    BNCLogDebug(@"Selected index %ld:%ld: %@.", indexPath.section, indexPath.row, row.title);
+    BNCLogDebug(@"Selected index %ld:%ld: %@.", (long)indexPath.section, (long)indexPath.row, row.title);
     if (row.rowStyle != TBRowStyleSwitch && row.selector) {
         #pragma clang diagnostic push
         #pragma clang diagnostic ignored "-Warc-performSelector-leaks"
@@ -284,9 +296,12 @@ didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
 
 - (BranchLinkProperties*) createLinkProperties {
     BranchLinkProperties *linkProperties = [[BranchLinkProperties alloc] init];
+    linkProperties.tags = @[ @"tag1", @"tag2" ];
     linkProperties.feature = feature;
     linkProperties.channel = channel;
+    linkProperties.stage = @"stage four";
     linkProperties.campaign = @"some campaign";
+    linkProperties.matchDuration = 12.2;
     [linkProperties addControlParam:@"$desktop_url" withValue: desktop_url];
     [linkProperties addControlParam:@"$ios_url" withValue: ios_url];
     return linkProperties;
@@ -470,7 +485,23 @@ static NSString* global_createdBranchURLString = nil;
     }
 }
 
+- (IBAction) registerBUOOnSpotlight:(id)sender {
+    BranchUniversalObject*buo = [self createUniversalObject];
+    buo.contentMetadata.customMetadata[@"deeplink_text"] =
+        [NSString stringWithFormat:@"This link was generated for Spotlight registration at %@",
+            [NSDate date]];
+    buo.locallyIndex = YES;
+    [buo userCompletedAction:BNCRegisterViewEvent];
+}
+
 #pragma mark - Toggle State
+
+- (IBAction) togglePrettyDisplay:(UISwitch*)sender {
+    TBTableRow *row = [self.tableData rowForTableView:self.tableView subView:sender]; 
+    row.integerValue = !row.integerValue;
+    [TBSettings shared].usePrettyDisplay = row.integerValue;
+    [self.tableData updateTableView:self.tableView row:row];
+}
 
 - (IBAction) toggleFacebookAppTrackingAction:(id)sender {
     BNCPreferenceHelper *prefs = [BNCPreferenceHelper preferenceHelper];
@@ -655,6 +686,11 @@ static NSString* global_createdBranchURLString = nil;
         ^ (NSString * _Nullable activityType, BOOL completed, NSError * _Nullable activityError) {
             BNCLogDebug(@"Done.");
     }];
+}
+
+- (IBAction)openFacebookAuth:(TBTableRow*)row {
+    NSURL*URL = [NSURL URLWithString:@"fb123://open?myself"];
+    [Branch.getInstance handleDeepLinkWithNewSession:URL];
 }
 
 - (IBAction) buoShareBarButton:(id)sender {

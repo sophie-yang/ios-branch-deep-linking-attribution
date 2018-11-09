@@ -23,41 +23,57 @@ NSDate *next_previous_update_time = nil;
 
 @implementation TBAppDelegate
 
+#pragma mark - Life Cycle Methods
+
 - (BOOL)application:(UIApplication *)application
 didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     BNCLogSetDisplayLevel(BNCLogLevelAll);
 
-    // Set to YES for testing GDPR compliance.
-    // [Branch setTrackingDisabled:YES];
-
-    // This simulates opt-in tracking.
+    #if 0
+    // This simulates tracking opt-in, rather than tracking opt-out.
     if (![[NSUserDefaults standardUserDefaults] boolForKey:@"hasRunBefore"]) {
         [[NSUserDefaults standardUserDefaults] setBool:YES forKey:@"hasRunBefore"];
         [Branch setTrackingDisabled:YES];
     }
+    #endif
 
     // Initialize Branch
     Branch *branch = [Branch getInstance];
+
+    // This starts the Branch integration validation.  Remove for normal use.
+    // [branch validateSDKIntegration];
     
     // Comment / un-comment to toggle debugging
     [branch setDebug];
 
     // Optionally check for Apple Search Ads attribution:
-    // [branch delayInitToCheckForSearchAds];
+    //[branch delayInitToCheckForSearchAds];
 
     // Turn this on to debug Apple Search Ads.  Should not be included for production.
     // [branch setAppleSearchAdsDebugMode];
 
     // For testing app updates:
     next_previous_update_time = [BNCPreferenceHelper preferenceHelper].previousAppBuildDate;
-    
+
+    BNCLogSetDisplayLevel(BNCLogLevelAll);
     [branch setWhiteListedSchemes:@[@"branchuitest"]];
+
+#if 1
+    // [branch setIdentity:@"Bobby Branch"];
     [branch initSessionWithLaunchOptions:launchOptions
         andRegisterDeepLinkHandler:^(NSDictionary * _Nullable params, NSError * _Nullable error) {
             [self handleBranchDeepLinkParameters:params error:error];
             global_previous_update_time = next_previous_update_time;
             next_previous_update_time = [BNCPreferenceHelper preferenceHelper].previousAppBuildDate;
         }];
+#else
+    [branch initSessionWithLaunchOptions:launchOptions];
+    branch.sessionInitWithParamsCallback = ^(NSDictionary *params, NSError *error) {
+        [self handleBranchDeepLinkParameters:params error:error];
+        global_previous_update_time = next_previous_update_time;
+        next_previous_update_time = [BNCPreferenceHelper preferenceHelper].previousAppBuildDate;
+    };
+#endif
 
     [self initializeViewControllers];
 
@@ -69,7 +85,8 @@ didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
   sourceApplication:(NSString *)sourceApplication
          annotation:(id)annotation {
 
-    NSLog(@"application:openURL:sourceApplication:annotation: invoked with URL: %@", [url description]);
+    NSLog(@"[branch.io] application:openURL:sourceApplication:annotation: invoked with URL: %@",
+        [url description]);
 
     // Required. Returns YES if Branch link, else returns NO
     [[Branch getInstance]
@@ -82,15 +99,15 @@ didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     return YES;
 }
 
+#if !defined(__IPHONE_12_0) || __IPHONE_OS_VERSION_MAX_ALLOWED < __IPHONE_12_0
+
 - (BOOL)application:(UIApplication *)application
 continueUserActivity:(NSUserActivity *)userActivity
  restorationHandler:(void (^)(NSArray *))restorationHandler {
-
-    NSLog(@"application:continueUserActivity:restorationHandler: invoked.\n"
-           "ActivityType: %@ userActivity.webpageURL: %@",
-           userActivity.activityType,
-           userActivity.webpageURL.absoluteString);
-
+    NSLog(@"[branch.io] application:continueUserActivity:restorationHandler: invoked.\n"
+          "ActivityType: %@ userActivity.webpageURL: %@",
+          userActivity.activityType,
+          userActivity.webpageURL.absoluteString);
     // Required. Returns YES if Branch Universal Link, else returns NO.
     // Add `branch_universal_link_domains` to .plist (String or Array) for custom domain(s).
     [[Branch getInstance] continueUserActivity:userActivity];
@@ -98,6 +115,26 @@ continueUserActivity:(NSUserActivity *)userActivity
     // Process non-Branch userActivities here...
     return YES;
 }
+
+#else
+
+- (BOOL)application:(UIApplication *)application
+continueUserActivity:(NSUserActivity *)userActivity
+ restorationHandler:(void(^)(NSArray<id<UIUserActivityRestoring>>*restorableObjects))restorationHandler {
+    NSLog(@"[branch.io] application:continueUserActivity:restorationHandler: invoked.\n"
+           "ActivityType: %@ userActivity.webpageURL: %@",
+           userActivity.activityType,
+           userActivity.webpageURL.absoluteString);
+    // Required. Returns YES if Branch Universal Link, else returns NO.
+    // Add `branch_universal_link_domains` to .plist (String or Array) for custom domain(s).
+    [[Branch getInstance] userCompletedAction:@"Open Universal Link"];
+    [[Branch getInstance] continueUserActivity:userActivity];
+
+    // Process non-Branch userActivities here...
+    return YES;
+}
+
+#endif
 
 - (void)applicationWillResignActive:(UIApplication *)application {
     BNCLogMethodName();
@@ -160,8 +197,10 @@ continueUserActivity:(NSUserActivity *)userActivity
             [[TBDetailViewController alloc] initWithData:params];
         dataViewController.title = @"Link Opened";
         dataViewController.message = params[@"~referring_link"];
-        if (!dataViewController.message)
+        if (!dataViewController.message.length)
             dataViewController.message = params[@"+non_branch_link"];
+        if (dataViewController.message.length == 0)
+            dataViewController.message = @"< No URL >";
         viewController = dataViewController;
      }
 

@@ -15,6 +15,7 @@
 
 // Ignore Safari availability for iOS 8 and lower in this example.
 #pragma clang diagnostic ignored "-Wpartial-availability"
+#pragma clang diagnostic ignored "-Wunguarded-availability"
 
 @interface AppDelegate() <SFSafariViewControllerDelegate>
 @property (nonatomic, strong) SFSafariViewController *onboardingVC;
@@ -38,7 +39,8 @@ didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     Branch *branch = [Branch getInstance];
 
     // Comment out (for match guarantee testing) / or un-comment to toggle debugging:
-    [branch setDebug];
+    // Note: Unit tests will fail if 'setDebug' is set.
+    // [branch setDebug];
     
     // Comment out in production. Un-comment to test your Branch SDK Integration:
     // [branch validateSDKIntegration];
@@ -56,6 +58,7 @@ didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
      *    Required: Initialize Branch, passing a deep link handler block:
      */
 
+    // [branch setIdentity:@"Bobby Branch"];
     [branch initSessionWithLaunchOptions:launchOptions
         andRegisterDeepLinkHandlerUsingBranchUniversalObject:
         ^ (BranchUniversalObject * _Nullable universalObject, BranchLinkProperties * _Nullable linkProperties, NSError * _Nullable error) {
@@ -173,10 +176,31 @@ didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     return YES;
 }
 
+#if !defined(__IPHONE_12_0) || __IPHONE_OS_VERSION_MAX_ALLOWED < __IPHONE_12_0
+
 - (BOOL)application:(UIApplication *)application
 continueUserActivity:(NSUserActivity *)userActivity
- restorationHandler:(void (^)(NSArray *))restorationHandler {
+ restorationHandler:(void(^)(NSArray*restorableObjects))restorationHandler {
 
+    NSLog(@"application:continueUserActivity:restorationHandler: invoked.\n"
+           "ActivityType: %@ userActivity.webpageURL: %@",
+           userActivity.activityType,
+           userActivity.webpageURL.absoluteString);
+
+    // Required. Returns YES if Branch Universal Link, else returns NO.
+    // Add `branch_universal_link_domains` to .plist (String or Array) for custom domain(s).
+    [[Branch getInstance] continueUserActivity:userActivity];
+
+    // Process non-Branch userActivities here...
+    return YES;
+}
+
+#else
+
+- (BOOL)application:(UIApplication *)application
+continueUserActivity:(NSUserActivity *)userActivity
+ restorationHandler:(void(^)(NSArray<id<UIUserActivityRestoring>>*restorableObjects))restorationHandler {
+ 
     NSLog(@"application:continueUserActivity:restorationHandler: invoked.\n"
            "ActivityType: %@ userActivity.webpageURL: %@",
            userActivity.activityType,
@@ -189,6 +213,8 @@ continueUserActivity:(NSUserActivity *)userActivity
     // Process non-Branch userActivities here...
     return YES;
 }
+
+#endif
 
 #pragma mark - Push Notifications (Optional)
 
